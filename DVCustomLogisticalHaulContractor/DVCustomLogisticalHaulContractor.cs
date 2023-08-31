@@ -7,7 +7,6 @@ using System.Reflection.Emit;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityModManagerNet;
 using static UnityModManagerNet.UnityModManager;
@@ -30,7 +29,7 @@ namespace DVCustomLogisticalHaulContractor
             mod = modEntry;
             harmony = new Harmony(mod.Info.Id);
             harmony.PatchAll();
-            ModEntry ownershipModEntry = FindMod("DVProductionChains");
+           ModEntry ownershipModEntry = FindMod("DVOwnership");
             if (ownershipModEntry != null && ownershipModEntry.Enabled)
             {
                 return true;

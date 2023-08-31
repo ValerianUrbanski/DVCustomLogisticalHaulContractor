@@ -8,7 +8,9 @@ using DV.Logic.Job;
 using UnityEngine;
 using HarmonyLib;
 using System.Collections;
-using UnityEditor.VersionControl;
+using DV.ThingTypes;
+using DV.ThingTypes.TransitionHelpers;
+using DV.Utils;
 
 namespace DVCustomLogisticalHaulContractor
 {
@@ -66,20 +68,20 @@ namespace DVCustomLogisticalHaulContractor
         private float getJobPayment()
         {
             
-            List<TrainCarType> lstTrainCarType = new List<TrainCarType>();
-            Dictionary<TrainCarType, int> dictionary = new Dictionary<TrainCarType, int>();
+            List<TrainCarLivery> lstTrainCarType = new List<TrainCarLivery>();
+            Dictionary<TrainCarLivery, int> dictionary = new Dictionary<TrainCarLivery, int>();
             foreach (TrainCar TrainCar in this.TrainCars)
             {
                 lstTrainCarType.Add(TrainCar.logicCar.carType);
             }
-            foreach (TrainCarType trainCarType in lstTrainCarType)
+            foreach (TrainCarLivery trainCarType in lstTrainCarType)
             {
                 if (!dictionary.ContainsKey(trainCarType))
                 {
                     dictionary[trainCarType] = 0;
                 }
-                Dictionary<TrainCarType, int> dictionary2 = dictionary;
-                TrainCarType key = trainCarType;
+                Dictionary<TrainCarLivery, int> dictionary2 = dictionary;
+                TrainCarLivery key = trainCarType;
                 int num = dictionary2[key];
                 dictionary2[key] = num + 1;
             }
@@ -96,7 +98,18 @@ namespace DVCustomLogisticalHaulContractor
         }
         private JobLicenses getRequiredLicences()
         {
-            return LicenseManager.GetRequiredLicensesForJobType(JobType.EmptyHaul) | LicenseManager.GetRequiredLicenseForNumberOfTransportedCars(this.TrainCars.Count);
+            //List<JobLicenses> jobLicenses = new List<JobLicenses>();
+            DVObjectModel types = Globals.G.Types;
+            HashSet<JobLicenseType_v2> licensesV2 = SingletonBehaviour<LicenseManager>.Instance.GetRequiredLicensesForJobType(JobType.EmptyHaul);
+            licensesV2.Add(SingletonBehaviour<LicenseManager>.Instance.GetRequiredLicenseForNumberOfTransportedCars(this.TrainCars.Count));
+            DVCustomLogisticalHaulContractor.Log("Here ");
+            JobLicenses required = JobLicenses.Basic;
+            foreach (JobLicenseType_v2 license in licensesV2)
+            {
+                required |= types.JobLicenses_to_v2.FirstOrDefault(x => x.Value == license).Key;
+            }
+            DVCustomLogisticalHaulContractor.Log(required);
+            return required; 
         }
         private StationController getOrigin()
         {
@@ -115,11 +128,12 @@ namespace DVCustomLogisticalHaulContractor
         private Track pickADestinationTrack()
         {
             YardTracksOrganizer yto = FindObjectOfType<YardTracksOrganizer>();
+            CarSpawner carSpawner = FindObjectOfType<CarSpawner>();
             if(yto != null)
             {
                 DVCustomLogisticalHaulContractor.Log("YTO FOUND !");
             }
-            List<Track> lstTracks = yto.FilterOutTracksWithoutRequiredFreeSpace(this.destination.logicStation.yard.StorageTracks,yto.GetSeparationLengthBetweenCars(this.cars.Count));
+            List<Track> lstTracks = yto.FilterOutTracksWithoutRequiredFreeSpace(this.destination.logicStation.yard.StorageTracks, carSpawner.GetSeparationLengthBetweenCars(this.cars.Count));
             DVCustomLogisticalHaulContractor.Log("Number of potential Tracks " + lstTracks.Count);
             System.Random rdm = new System.Random();
             if(lstTracks.Count == 0)
@@ -134,24 +148,36 @@ namespace DVCustomLogisticalHaulContractor
         }
         private bool isStationAcceptingCargoType()
         {
-            HashSet<CargoContainerType> containerTypes = new HashSet<CargoContainerType>();
+           /* HashSet<CargoType> cargoTypes = new HashSet<CargoType>();
             List<StationController> stationController = new List<StationController>();
-            foreach(TrainCar trainCar in this.TrainCars)
+            foreach(CargoType cargo in Enum.GetValues(typeof(CargoType)))
             {
-                containerTypes.Add(CargoTypes.CarTypeToContainerType[trainCar.carType]);
+                foreach(TrainCar trainCar in this.TrainCars)
+                {
+                    if(cargo.ToV2().IsLoadableOnCarType(trainCar.carType.ToV2().parentType))
+                    {
+                        cargoTypes.Add(cargo);
+                    }
+                }
             }
-            if (containerTypes.Count == 0)
+            if (cargoTypes.Count == 0)
             {
                 return false;
             }
-            foreach (KeyValuePair<StationController, HashSet<CargoContainerType>> keyValuePair in SingletonBehaviour<LogicController>.Instance.stationToSupportedContainerTypes)
+            foreach (KeyValuePair<StationController, HashSet<CargoType>> keyValuePair in LogicController.Instance.GetStationsThatUseCarTypes)
             {
-                if (!(keyValuePair.Key == this.origin) && keyValuePair.Value.IsSupersetOf(containerTypes))
+                if (!(keyValuePair.Key == this.origin) && keyValuePair.Value.IsSupersetOf(cargoTypes))
                 {
                     stationController.Add(keyValuePair.Key);
                 }
+            }*/
+           HashSet<TrainCarType_v2> lstCars = new HashSet<TrainCarType_v2>();
+            foreach (TrainCar trainCar in this.TrainCars)
+            {
+                lstCars.Add(trainCar.carType.ToV2().parentType);
             }
-            foreach(StationController controller in stationController)
+           List<StationController> StationAcceptingCar = LogicController.Instance.GetStationsThatUseCarTypes(lstCars, null);
+            foreach(StationController controller in StationAcceptingCar)
             {
                 if(controller == this.destination)
                 {

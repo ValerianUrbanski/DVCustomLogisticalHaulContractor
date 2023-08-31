@@ -3,8 +3,8 @@
     "DisplayName": "Logistical Haul Contractor",
     "Author": "Valerian",
     "Version": "0.1.0",
-    "Requirements": [ "DVOwnership","DVProductionChains" ],
-    "LoadAfter": [ "DVOwnership","DVProductionChains" ],
+    "Requirements": [ "DVOwnership" ],
+    "LoadAfter": [ "DVOwnership" ],
     "AssemblyName": "DVCustomLogisticalHaulContractor.dll",
     "EntryMethod": "DVCustomLogisticalHaulContractor.DVCustomLogisticalHaulContractor.Load"
 }

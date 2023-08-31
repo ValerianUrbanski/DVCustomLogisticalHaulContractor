@@ -92,6 +92,7 @@ namespace DVCustomLogisticalHaulContractor
         public void Awake()
         {
             var summoner = controller.deleteControl;
+            //this.ButtonBehaviour = ButtonBehaviourType.Regular;
             if(this.lstStationControllers == null)
             {
                 this.lstStationControllers = FindObjectsOfType<StationController>();
@@ -119,10 +120,10 @@ namespace DVCustomLogisticalHaulContractor
             this.SelectedCar = null;
             this.lstCars = new List<TrainCar>();
 
-            if (!signalOrigin)
+            /*if (!this.signalOrigin)
             {
-                signalOrigin = transform;
-            }
+                signalOrigin = base.transform;
+            }*/
             DVCustomLogisticalHaulContractor.Log("Contractor AWAKE");
              if (!this.signalOrigin)
              {
@@ -200,6 +201,7 @@ namespace DVCustomLogisticalHaulContractor
         }
         private void setState(CommsRadioCarSelector.State newState)
         {
+           // DVCustomLogisticalHaulContractor.Log($"Entering state : {this.state.ToString()}");
             if (this.state == newState)
             {
                 return;
@@ -210,6 +212,7 @@ namespace DVCustomLogisticalHaulContractor
             {
                 case CommsRadioCarSelector.State.ScanCarToAdd:
                     {
+                        DVCustomLogisticalHaulContractor.Log("Scan car state");
                         this.display.SetAction(null);
                         this.ButtonBehaviour = ButtonBehaviourType.Regular;
                         return;
@@ -255,94 +258,104 @@ namespace DVCustomLogisticalHaulContractor
 
         public void OnUse()
         {
-            switch (this.state)
-            {
-                case CommsRadioCarSelector.State.ScanCarToAdd:
-                    {
-                        if(this.checkIfInList(this.pointedCar))
+            //try { 
+            DVCustomLogisticalHaulContractor.Log("Use Btn");
+                switch (this.state)
+                {
+                    case CommsRadioCarSelector.State.ScanCarToAdd:
                         {
-                            this.setState(CommsRadioCarSelector.State.Confirm);
-                            return;
-                        }
-                        if (this.pointedCar != null && JobChainController.GetJobOfCar(this.pointedCar) == null)
-                        {
-                            this.SelectedCar = this.pointedCar;
-                            this.jobOfCar = JobChainController.GetJobOfCar(this.pointedCar);
-                            if (!(this.checkIfInList(this.SelectedCar)))
+                            if (this.checkIfInList(this.pointedCar))
                             {
-                                if(this.lstCars.Count==0 && this.departureTrack == null)
-                                {
-                                    this.departureTrack = this.SelectedCar.logicCar.CurrentTrack;
-                                }
-                                else if(this.lstCars.Count>1)
-                                {
-                                    if(this.SelectedCar.logicCar.CurrentTrack != this.departureTrack)
-                                    {
-                                        DVCustomLogisticalHaulContractor.Log("Cars are not on the same Track");
-                                        this.Error = "The selected Car is not on the Departure Track";
-                                        StartCoroutine("ErrorDisplay");
-                                        return;
-                                    }
-                                }
-                                this.lstCars.Add(this.SelectedCar);
-                                this.SelectedCar = null;
+                                this.setState(CommsRadioCarSelector.State.Confirm);
+                                return;
                             }
-                            this.pointedCar = null;
-                            this.updateContent();
-                            CommsRadioController.PlayAudioFromRadio(this.confirmSound, base.transform);
-                            return;
+                            if (this.pointedCar != null && JobsManager.Instance.GetJobOfCar(this.pointedCar) == null)
+                            {
+                                this.SelectedCar = this.pointedCar;
+                                this.jobOfCar = JobsManager.Instance.GetJobOfCar(this.pointedCar);
+                                if (!(this.checkIfInList(this.SelectedCar)))
+                                {
+                                    if (this.lstCars.Count == 0 && this.departureTrack == null)
+                                    {
+                                        this.departureTrack = this.SelectedCar.logicCar.CurrentTrack;
+                                    }
+                                    else if (this.lstCars.Count > 1)
+                                    {
+                                        if (this.SelectedCar.logicCar.CurrentTrack != this.departureTrack)
+                                        {
+                                            DVCustomLogisticalHaulContractor.Log("Cars are not on the same Track");
+                                            this.Error = "The selected Car is not on the Departure Track";
+                                            StartCoroutine("ErrorDisplay");
+                                            return;
+                                        }
+                                    }
+                                    this.lstCars.Add(this.SelectedCar);
+                                    this.SelectedCar = null;
+                                }
+                                this.pointedCar = null;
+                                this.updateContent();
+                                CommsRadioController.PlayAudioFromRadio(this.confirmSound, base.transform);
+                                return;
+                            }
+                            else if (JobsManager.Instance.GetJobOfCar(this.pointedCar) != null)
+                            {
+                                DVCustomLogisticalHaulContractor.Log("The car already implied into a job");
+                                this.display.SetContent("The Car is currently into a job");
+                                return;
+                            }
+                            else
+                            {
+                                DVCustomLogisticalHaulContractor.Log("Cannot get pointed car");
+                            }
+                            break;
                         }
-                        else if (JobChainController.GetJobOfCar(this.pointedCar) != null)
+                    case CommsRadioCarSelector.State.Confirm:
                         {
-                            DVCustomLogisticalHaulContractor.Log("The car already implied into a job");
-                            this.display.SetContent("The Car is currently into a job");
-                            return;
+                            if (!(this.checkIfInList(this.pointedCar)))
+                            {
+                                this.setState(CommsRadioCarSelector.State.ScanCarToAdd);
+                                return;
+                            }
+                            if (this.checkIfInList(this.pointedCar))
+                            {
+                                this.setState(CommsRadioCarSelector.State.CreatingJob);
+                                CommsRadioController.PlayAudioFromRadio(confirmSound, base.transform);
+                                return;
+                            }
+                            break;
                         }
-                        break;
-                    }
-                case CommsRadioCarSelector.State.Confirm:
-                    {
-                        if(!(this.checkIfInList(this.pointedCar)))
+                    case CommsRadioCarSelector.State.Cancel:
                         {
-                            this.setState(CommsRadioCarSelector.State.ScanCarToAdd);
-                            return;
+                            this.ClearFlags();
+                            break;
                         }
-                        if(this.checkIfInList(this.pointedCar))
+                    case CommsRadioCarSelector.State.CreatingJob:
                         {
-                            this.setState(CommsRadioCarSelector.State.CreatingJob);
-                            CommsRadioController.PlayAudioFromRadio(confirmSound, base.transform);
+                            if (this.stationsNames[this.currentStationIndex].Equals("RETURN"))
+                            {
+                                DVCustomLogisticalHaulContractor.Log("RETURN SELECTED");
+                                this.setState(CommsRadioCarSelector.State.ScanCarToAdd);
+                                this.updateContent();
+                                return;
+                            }
+                            PlayerManager.GetWorldAbsolutePlayerPosition();
+                            JobGeneratorController jobGeneratorController = new JobGeneratorController(this.lstStationControllers, this.lstStationControllers[this.currentStationIndex], this.lstCars, this.departureTrack);
+                            String error = jobGeneratorController.generateLogisticalJob();
+                            this.Error = error;
+                            StartCoroutine("ErrorDisplay");
+                            this.ClearFlags();
                             return;
                         }
-                        break;
-                    }
-                case CommsRadioCarSelector.State.Cancel:
-                    {
-                        this.ClearFlags();
-                        break;
-                    }
-                case CommsRadioCarSelector.State.CreatingJob:
-                    {
-                        if (this.stationsNames[this.currentStationIndex].Equals("RETURN"))
+                    default:
                         {
-                            DVCustomLogisticalHaulContractor.Log("RETURN SELECTED");
-                            this.setState(CommsRadioCarSelector.State.ScanCarToAdd);
-                            this.updateContent();
-                            return;
+                            this.ClearFlags();
+                            break;
                         }
-                        PlayerManager.GetWorldAbsolutePlayerPosition();
-                        JobGeneratorController jobGeneratorController = new JobGeneratorController(this.lstStationControllers,this.lstStationControllers[this.currentStationIndex],this.lstCars,this.departureTrack);
-                        String error = jobGeneratorController.generateLogisticalJob();
-                        this.Error = error;
-                        StartCoroutine("ErrorDisplay");
-                        this.ClearFlags();
-                        return;
-                    }
-                default:
-                    {
-                        this.ClearFlags();
-                        break;
-                    }
-            }
+                }
+            /*}
+            catch (Exception e) {
+                DVCustomLogisticalHaulContractor.Log($"Exception Occured {e.Message}");
+            }*/
         }
         IEnumerator ErrorDisplay()
         {
