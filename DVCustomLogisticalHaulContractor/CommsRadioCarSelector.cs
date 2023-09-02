@@ -11,6 +11,10 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using System.Collections;
+using DV.InventorySystem;
+using DV.ThingTypes.TransitionHelpers;
+using DV.ThingTypes;
+using DV.Utils;
 
 namespace DVCustomLogisticalHaulContractor
 {
@@ -91,6 +95,7 @@ namespace DVCustomLogisticalHaulContractor
 
         public void Awake()
         {
+            CheckForStartingCondition();
             var summoner = controller.deleteControl;
             //this.ButtonBehaviour = ButtonBehaviourType.Regular;
             if(this.lstStationControllers == null)
@@ -151,6 +156,15 @@ namespace DVCustomLogisticalHaulContractor
              this.trainHighlighter.transform.SetParent(null);
             this.setState(CommsRadioCarSelector.State.ScanCarToAdd);
             this.SetStartingDisplay();
+        }
+        private void CheckForStartingCondition()
+        {
+            LicenseManager lm = MonoBehaviour.FindObjectOfType<LicenseManager>();
+            if (!lm.IsGeneralLicenseAcquired(TransitionHelpers.ToV2(GeneralLicenseType.ConcurrentJobs1)) || !lm.IsJobLicenseAcquired(TransitionHelpers.ToV2(JobLicenses.LogisticalHaul)))
+            {
+                lm.AcquireGeneralLicense(TransitionHelpers.ToV2(GeneralLicenseType.ConcurrentJobs1));
+                lm.AcquireJobLicense(TransitionHelpers.ToV2(JobLicenses.LogisticalHaul));
+            }
         }
         private void HighlightCar(TrainCar car, Material highlightMaterial)
         {
