@@ -11,6 +11,7 @@ using System.Collections;
 using DV.ThingTypes;
 using DV.ThingTypes.TransitionHelpers;
 using DV.Utils;
+using JetBrains.Annotations;
 
 namespace DVCustomLogisticalHaulContractor
 {
@@ -62,8 +63,40 @@ namespace DVCustomLogisticalHaulContractor
             this.chainData = this.GetStationsChainData();
             DVCustomLogisticalHaulContractor.Log("Chains DATA SET");
             DVCustomLogisticalHaulContractor.Log("Generating logistical Job at Station " + this.origin.name);
-            JobsGenerator.CreateEmptyHaulJob(this.origin.logicStation, this.chainData, this.cars, this.departureTrack, this.ArrivalTrack, getTimeLinit(), this.getJobPayment(), null,this.getRequiredLicences());
+            var gameObject = new GameObject($"ChainJob[{JobType.EmptyHaul}]: {this.origin.logicStation.ID}");
+            gameObject.transform.SetParent(this.origin.transform);
+
+            var jobChainController = new JobChainControllerWithEmptyHaulGeneration(gameObject);
+            jobChainController.trainCarsForJobChain = getTrainCarsFromCar(this.cars).ToList();
+            var jobDefinition = getJobDefinition(gameObject, this.origin.logicStation, this.departureTrack, this.ArrivalTrack, this.cars, getTimeLimit(), this.getJobPayment(), this.chainData, this.getRequiredLicences());
+            jobChainController.AddJobDefinitionToChain(jobDefinition);
+            jobChainController.FinalizeSetupAndGenerateFirstJob();
+            //JobsGenerator.CreateEmptyHaulJob(this.origin.logicStation, this.chainData, this.cars, this.departureTrack, this.ArrivalTrack, getTimeLimit(), this.getJobPayment(), null,this.getRequiredLicences());
             return "Job Created";
+        }
+        private StaticEmptyHaulJobDefinition getJobDefinition(GameObject chainJobGO, Station logicStation, Track startingTrack, Track destinationTrack, List<Car> logicCarsToHaul, float bonusTimeLimit, float baseWage, StationsChainData stationsChainData, JobLicenses requiredLicenses)
+        {
+            var jobDefinition = chainJobGO.AddComponent<StaticEmptyHaulJobDefinition>();
+            jobDefinition.PopulateBaseJobDefinition(logicStation, bonusTimeLimit, baseWage, stationsChainData, requiredLicenses);
+            jobDefinition.startingTrack = startingTrack;
+            jobDefinition.trainCarsToTransport = logicCarsToHaul;
+            jobDefinition.destinationTrack = destinationTrack;
+            return jobDefinition;
+        }
+        private IEnumerable<TrainCar> getTrainCarsFromCar(IEnumerable<Car> cars)
+        {
+            var trainCars = new List<TrainCar>();
+
+            if (cars == null || cars.Count() == 0) { return trainCars; }
+            var allTrainCars = SingletonBehaviour<CarSpawner>.Instance.AllCars;
+            var trainCarsByLogicCar = new Dictionary<Car, TrainCar>();
+
+            foreach (var trainCar in allTrainCars)
+            {
+                trainCarsByLogicCar.Add(trainCar.logicCar, trainCar);
+            }
+
+            return from car in cars select trainCarsByLogicCar[car];
         }
         private float getJobPayment()
         {
@@ -89,7 +122,7 @@ namespace DVCustomLogisticalHaulContractor
             PaymentCalculationData pcd = new PaymentCalculationData(dictionary,cargoData);
             return JobPaymentCalculator.CalculateJobPayment(JobType.EmptyHaul, JobPaymentCalculator.GetDistanceBetweenStations(this.origin, this.destination),pcd);
         }
-        private float getTimeLinit()
+        private float getTimeLimit()
         {
             float bonusTimeLimit = 0f;
             float distanceBetweenStations = JobPaymentCalculator.GetDistanceBetweenStations(this.origin, this.destination);
@@ -148,9 +181,22 @@ namespace DVCustomLogisticalHaulContractor
         }
         private bool isStationAcceptingCargoType()
         {
-           /* HashSet<CargoType> cargoTypes = new HashSet<CargoType>();
-            List<StationController> stationController = new List<StationController>();
-            foreach(CargoType cargo in Enum.GetValues(typeof(CargoType)))
+           HashSet<CargoType> cargoTypes = new HashSet<CargoType>();
+            HashSet<TrainCarType_v2> lstCars = new HashSet<TrainCarType_v2>();
+            foreach (TrainCar trainCar in this.TrainCars)
+            {
+                lstCars.Add(trainCar.carType.ToV2().parentType);
+            }
+            List<StationController> stationController = SingletonBehaviour<LogicController>.Instance.GetStationsThatUseCarTypes(lstCars, null);
+            foreach(StationController station in stationController)
+            {
+                if((this.origin != this.destination) && this.destination == station)
+                {
+                    return true;
+                }
+            }
+            return false;
+            /*foreach (CargoType cargo in Enum.GetValues(typeof(CargoType)))
             {
                 foreach(TrainCar trainCar in this.TrainCars)
                 {
@@ -164,18 +210,6 @@ namespace DVCustomLogisticalHaulContractor
             {
                 return false;
             }
-            foreach (KeyValuePair<StationController, HashSet<CargoType>> keyValuePair in LogicController.Instance.GetStationsThatUseCarTypes)
-            {
-                if (!(keyValuePair.Key == this.origin) && keyValuePair.Value.IsSupersetOf(cargoTypes))
-                {
-                    stationController.Add(keyValuePair.Key);
-                }
-            }*/
-           HashSet<TrainCarType_v2> lstCars = new HashSet<TrainCarType_v2>();
-            foreach (TrainCar trainCar in this.TrainCars)
-            {
-                lstCars.Add(trainCar.carType.ToV2().parentType);
-            }
            List<StationController> StationAcceptingCar = LogicController.Instance.GetStationsThatUseCarTypes(lstCars, null);
             foreach(StationController controller in StationAcceptingCar)
             {
@@ -184,7 +218,7 @@ namespace DVCustomLogisticalHaulContractor
                     return true;
                 }
             }
-            return false;
+            return false;*/
         }
     }
 }

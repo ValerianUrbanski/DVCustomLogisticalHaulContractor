@@ -2,7 +2,7 @@
     "Id": "DVCustomLogisticalHaulContractor",
     "DisplayName": "Logistical Haul Contractor",
     "Author": "Valerian",
-    "Version": "0.1.0",
+    "Version": "1.0.0",
     "Requirements": [ "DVOwnership" ],
     "LoadAfter": [ "DVOwnership" ],
     "AssemblyName": "DVCustomLogisticalHaulContractor.dll",
